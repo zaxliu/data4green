@@ -1,44 +1,53 @@
 %% Extract Base Station Information from OpenCellID Dataset
-%   Extract information about the base stations in some country. Since 
+%   Extract information of the base stations in some country. Since 
 %   OpenCellID dataset is very big, direct csvread is not applicable,
-%   use textscan for bulk row read instead.
+%   use textscan to read multiple rows in bulk instead.
 %% Initialization
 % File locations
 fOCI = '../D4D/cell_towers.csv';    % Location of OpenCellID file
 fOut = '../D4D/cell_Senegal.csv';   % Desired location of output file
 
 % Processing parameters
-MNC = 608;  % Contry code for desired country, 608 for Senegal
+MCC = 608;  % Contry code for desired country, 608 for Senegal
 N = 100000; % Bulk read size
 
-% Dataset format
-firstLineFormat = '%s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s';  % Header line format
-otherLineFormat = '%f %f %f %f %f %f %f %s %f %f %f %s %f %f %f %f %f %f';  % Data line format
+% Read/write format
+firstRowFormat = '%s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s';  % Header row format
+otherRowFormat = '%f %f %f %f %f %f %f %s %f %f %f %s %f %f %f %f %f %f';  % Data row format
+outputColumn = [1,2,4,5,6]; % MCC, MNC, CellID, Longitude, Latitude
+outputFormat = '%d,%d,%d,%f,%f\n';
 
-%% Dataset processing
-fid = fopen(fOCI);  % Open OCI dataset
-fprintf(['Reading from file ' fOCI '\n']);
-lineRead = textscan(fid,firstLineFormat,1,'delimiter', ',','EmptyValue', -Inf);  % Read header line (first line)
-title = lineRead;
+% Temporary variables
 n = 0;              % Num of entries read
 nFound = 0;         % Num of matched found
-varWrite = [];      % To be written to the output file
+rowsRead = {'dummy'};
 tTotal = 0;
 tBulk = 0;
-while ~isempty(lineRead{1,1})   % If last read got anything, continue processing
-    tic;
-    fprintf('Now processing %d - %d... ',n+1,n+N);
-    lineRead = textscan(fid,otherLineFormat,N,'delimiter', ',','EmptyValue', -Inf);
-    idx = (lineRead{1,1} == 608);   % Which BS belongs to desired country
-    if sum(idx) ~= 0                % If any BS belongs to desired country
-        nFound = nFound + sum(idx);     % Accumulate
+
+%% Dataset processing
+fidOCI = fopen(fOCI);      % Open OCI dataset
+fidOut = fopen(fOut,'w');  % Open output file for write
+fprintf(['Reading from file ' fOCI '\n']);
+fprintf(['Writing to file ' fOut '\n']);
+
+title = textscan(fidOCI,firstRowFormat,1,'delimiter', ',','EmptyValue', -Inf);  % Read header row (first row)
+tic;
+rowsRead = textscan(fidOCI,otherRowFormat,N,'delimiter', ',','EmptyValue', -Inf); % Read a row
+while ~isempty(rowsRead{1,1})   % If last read got anything, continue processing
+    fprintf('Now processing rows %d - %d... ',n+1,n+N);    
+    idx = (rowsRead{1,1} == MCC);   % Index BSs that belong to the desired country
+    if sum(idx) ~= 0                % If any BS belongs to the desired country
+        nFound = nFound + sum(idx);     % Accumulate counter
         fprintf('%d BS found! Total %d... ',sum(idx),nFound); % Tell good news
         % Append results to output variable
-        varWrite((nFound-sum(idx)+1):nFound,1) = lineRead{1,1}(idx);
-        varWrite((nFound-sum(idx)+1):nFound,2) = lineRead{1,2}(idx);
-        varWrite((nFound-sum(idx)+1):nFound,3) = lineRead{1,4}(idx);
-        varWrite((nFound-sum(idx)+1):nFound,4) = lineRead{1,5}(idx);
-        varWrite((nFound-sum(idx)+1):nFound,5) = lineRead{1,6}(idx);
+        varWrite = cell(length(rowsRead{1}),length(outputColumn));      % To be written to the output file
+        for idxC = 1:length(outputColumn)
+            varWrite(:,idxC) = mat2cell(rowsRead{outputColumn(idxC)},ones(length(rowsRead{1}),1));
+        end
+        varWrite = varWrite(idx,:);
+        for idxR = 1:size(varWrite,1)
+            fprintf(fidOut,outputFormat,varWrite{idxR,:});
+        end
     else                           % Else tell the sad news
         fprintf('No BS found... '); 
     end;
@@ -46,7 +55,10 @@ while ~isempty(lineRead{1,1})   % If last read got anything, continue processing
     tBulk = toc;
     fprintf('Time elapsed: %.3f s\n', tBulk);
     tTotal = tTotal + tBulk;
+    tic;
+    rowsRead = textscan(fidOCI,otherRowFormat,N,'delimiter', ',','EmptyValue', -Inf); % Read next row
 end
-csvwrite(fOut,varWrite);
+% csvwrite(fOut,varWrite);
 fprintf(['Results have been written to file ' fOut '\n']);
 fprintf('Total time elapsed is %.3f s\n', tTotal);
+fclose('all');
