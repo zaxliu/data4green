@@ -1,15 +1,18 @@
 data4green
 ==========
+
 This project contains codes for the big data challenge Data for Development (D4D) Senegal written by Niulabers.
 
 For security reasons, the dataset files are stored in another folder. Users should install the dataset on his/her own computer before using codes. The dataset includes D4D dataset and OpenCellID dataset.
 
 Code List =====================================
+
 ---Matlab Code---
 extractBS.m-----------------Extract the cells of a particular contry from OpenCellID dataset, and store them separately in                             another file.
 recoverCell.m---------------Recover the true geographical location of cells in D4D dataset with the help of OpenCellID                                 dataset. (Still not working properly, to be refined.)
 
 Change Log =====================================
+
 --2014-10-12--
 + Modified the I/O methods in extractBS.m from high-level (csvwrite) to low-level methods (fprintf). This way the code can still be used if we want to extract non-numerical columns. (Currently all columns are numbers)
 + Added commentation for recoverCell.m.
